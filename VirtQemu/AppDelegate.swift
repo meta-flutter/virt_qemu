@@ -7,8 +7,9 @@ The app delegate that sets up and starts the virtual machine.
 
 import Virtualization
 
-let vmBundlePath = NSHomeDirectory() + "/GUI Linux VM.bundle/"
+let vmBundlePath = NSHomeDirectory() + "/VirtQemu/"
 let mainDiskImagePath = vmBundlePath + "Disk.img"
+let kernelPath = vmBundlePath + "Image"
 let efiVariableStorePath = vmBundlePath + "NVRAM"
 let machineIdentifierPath = vmBundlePath + "MachineIdentifier"
 
@@ -33,7 +34,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, VZVirtualMachineDelegate {
         do {
             try FileManager.default.createDirectory(atPath: vmBundlePath, withIntermediateDirectories: false)
         } catch {
-            fatalError("Failed to create “GUI Linux VM.bundle.”")
+            fatalError("Failed to create “VirtQemu”")
         }
     }
 
@@ -96,7 +97,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, VZVirtualMachineDelegate {
     private func retrieveMachineIdentifier() -> VZGenericMachineIdentifier {
         // Retrieve the machine identifier.
         guard let machineIdentifierData = try? Data(contentsOf: URL(fileURLWithPath: machineIdentifierPath)) else {
-            fatalError("Failed to retrieve the machine identifier data.")
+            return createAndSaveMachineIdentifier()
+            //fatalError("Failed to retrieve the machine identifier data.")
         }
 
         guard let machineIdentifier = VZGenericMachineIdentifier(dataRepresentation: machineIdentifierData) else {
@@ -186,21 +188,23 @@ class AppDelegate: NSObject, NSApplicationDelegate, VZVirtualMachineDelegate {
         virtualMachineConfiguration.memorySize = computeMemorySize()
 
         let platform = VZGenericPlatformConfiguration()
-        let bootloader = VZEFIBootLoader()
+        let bootloader =  VZLinuxBootLoader(kernelURL: URL(fileURLWithPath: kernelPath))
+        bootloader.commandLine = "root=/dev/vda quiet"
+        //let bootloader = VZEFIBootLoader()
         let disksArray = NSMutableArray()
 
         if needsInstall {
             // This is a fresh install: Create a new machine identifier and EFI variable store,
             // and configure a USB mass storage device to boot the ISO image.
             platform.machineIdentifier = createAndSaveMachineIdentifier()
-            bootloader.variableStore = createEFIVariableStore()
+            //bootloader.variableStore = createEFIVariableStore()
             disksArray.add(createUSBMassStorageDeviceConfiguration())
         } else {
             // The VM is booting from a disk image that already has the OS installed.
             // Retrieve the machine identifier and EFI variable store that were saved to
             // disk during installation.
             platform.machineIdentifier = retrieveMachineIdentifier()
-            bootloader.variableStore = retrieveEFIVariableStore()
+            //bootloader.variableStore = retrieveEFIVariableStore()
         }
 
         virtualMachineConfiguration.platform = platform
@@ -246,10 +250,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, VZVirtualMachineDelegate {
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         NSApp.activate(ignoringOtherApps: true)
 
-        // If "GUI Linux VM.bundle" doesn't exist, the sample app tries to create
+        // If "VirtQemu" doesn't exist, the sample app tries to create
         // one and install Linux onto an empty disk image from the ISO image,
         // otherwise, it tries to directly boot from the disk image inside
-        // the "GUI Linux VM.bundle".
+        // the "VirtQemu".
         if !FileManager.default.fileExists(atPath: vmBundlePath) {
             needsInstall = true
             createVMBundle()
