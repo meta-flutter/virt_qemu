@@ -1,4 +1,4 @@
-# Running GUI Linux in a virtual machine on a Mac
+# Running GUI Linux in a virtual machine on a arm64 Mac
 
 ## Create runtime folder
 
